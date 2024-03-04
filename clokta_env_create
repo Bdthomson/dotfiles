@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Path to the source AWS credentials file
+source_file="$HOME/.aws/credentials"
+
+# Base directory for output files
+base_dir="$HOME/.clokta"
+
+# Check if the source file exists
+if [ ! -f "$source_file" ]; then
+    echo "Source file not found!"
+    exit 1
+fi
+
+# Create base directory if it doesn't exist
+mkdir -p "$base_dir"
+
+# Variable to keep track of the current profile
+current_profile=""
+
+# Read the source file line by line
+while IFS= read -r line; do
+    # Check if the line is a profile header
+    if [[ $line =~ ^\[(.*)\]$ ]]; then
+        # Extract profile name and define the output file path
+        current_profile=${BASH_REMATCH[1]}
+        output_file="$base_dir/$current_profile.env"
+        > "$output_file" # Create or clear the file
+    elif [[ -n $current_profile && $line =~ ^aws_ ]]; then
+        # Transform the line and append to the output file
+        key=$(echo $line | cut -d' ' -f1)
+        value=$(echo $line | cut -d' ' -f3)
+        # Convert key to uppercase
+        case "$key" in
+            aws_access_key_id) echo "AWS_ACCESS_KEY_ID=$value" >> "$output_file" ;;
+            aws_secret_access_key) echo "AWS_SECRET_ACCESS_KEY=$value" >> "$output_file" ;;
+            aws_session_token) echo "AWS_SESSION_TOKEN=$value" >> "$output_file" ;;
+        esac
+    fi
+done < "$source_file"
+
+echo "Files generated in $base_dir"
